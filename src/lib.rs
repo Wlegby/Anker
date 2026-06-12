@@ -5,6 +5,7 @@ pub mod system;
 pub mod cards;
 pub mod decks;
 pub mod gui;
+pub mod markdown;
 pub mod media;
 pub mod models;
 pub mod notes;

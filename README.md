@@ -148,6 +148,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+### 5. Handling Math and Markdown (Obsidian to Anki)
+
+If you write your notes in **Obsidian** (using Markdown for bold, italics, lists, and `$` or `$$` for math), you can seamlessly convert it into Anki-ready HTML using our built-in Markdown compiler! 
+
+```rust
+use anker::markdown::markdown_to_anki;
+
+let obsidian_text = "Here is **bold**, *italic*, and an equation: $$a^2 + b^2 = c^2$$";
+
+// Automatically converts to: 
+// "<p>Here is <strong>bold</strong>, <em>italic</em>, and an equation: \\[a^2 + b^2 = c^2\\]</p>"
+let html_for_anki = markdown_to_anki(obsidian_text);
+```
+
+#### Transpiling Typst Math to Anki MathJax using Pandoc
+
+If you are using Obsidian with a **Typst** plugin (writing Typst code inside your `$...$` blocks like `$sum_(i=1)^n i$`), you can use our advanced `markdown_to_anki_with_typst` function. 
+
+This will parse your Markdown, extract your Typst math, and use **Pandoc** under the hood to compile the Typst syntax directly into Anki's native LaTeX/MathJax! *(Requires `pandoc` to be installed on your system).*
+
+```rust
+use anker::markdown::markdown_to_anki_with_typst;
+
+let obsidian_typst = "Compute the sum: $sum_(i=1)^n i$";
+
+// Pandoc compiles the Typst math into LaTeX on the fly!
+// Outputs: "<p>Compute the sum: \\(\\sum_{i = 1}^{n}i\\)</p>"
+let html_for_anki = markdown_to_anki_with_typst(obsidian_typst);
+```
+
 ## Modules overview
 
 - `client.decks()`: Create, list, delete decks.

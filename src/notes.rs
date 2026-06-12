@@ -163,6 +163,72 @@ pub fn format_cloze(text: &str) -> String {
     result
 }
 
+/// Wraps a string in inline Typst math delimiters (`$...$`).
+/// Note: Anki does not support Typst natively. This requires an add-on such as "Typst Math in Anki".
+pub fn typst_inline(math: &str) -> String {
+    format!("${}$", math)
+}
+
+/// Wraps a string in block Typst math delimiters (`$$...$$`).
+/// Note: Anki does not support Typst natively. This requires an add-on such as "Typst Math in Anki".
+pub fn typst_block(math: &str) -> String {
+    format!("$${}$$", math)
+}
+
+/// Wraps a string in inline MathJax delimiters (`\(...\)`).
+/// MathJax is natively supported by modern Anki out-of-the-box.
+pub fn mathjax_inline(math: &str) -> String {
+    format!("\\({}\\)", math)
+}
+
+/// Wraps a string in block MathJax delimiters (`\[...\]`).
+/// MathJax is natively supported by modern Anki out-of-the-box.
+pub fn mathjax_block(math: &str) -> String {
+    format!("\\[{}\\]", math)
+}
+
+/// Converts Obsidian-style math delimiters (`$...$` and `$$...$$`)
+/// into Anki's native MathJax delimiters (`\(...\)` and `\[...\]`).
+/// This allows you to write standard Obsidian text and have it render flawlessly in Anki.
+pub fn format_obsidian(text: &str) -> String {
+    let mut result = String::with_capacity(text.len() + 10);
+    let mut chars = text.chars().peekable();
+    let mut in_inline = false;
+    let mut in_block = false;
+
+    while let Some(c) = chars.next() {
+        if c == '$' {
+            if chars.peek() == Some(&'$') {
+                chars.next(); // Consume the second '$'
+                if in_block {
+                    result.push_str("\\]");
+                    in_block = false;
+                } else if !in_inline {
+                    result.push_str("\\[");
+                    in_block = true;
+                } else {
+                    // Encountered $$ inside $...$, just output it
+                    result.push_str("$$");
+                }
+            } else {
+                if in_inline {
+                    result.push_str("\\)");
+                    in_inline = false;
+                } else if !in_block {
+                    result.push_str("\\(");
+                    in_inline = true;
+                } else {
+                    // Encountered $ inside $$...$$, just output it
+                    result.push('$');
+                }
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -176,6 +242,35 @@ mod tests {
         assert_eq!(
             format_cloze("Already {{c1::formatted}} and {{new}}"),
             "Already {{c1::formatted}} and {{c1::new}}" // The index for new clozes starts at 1, but we didn't advance it for the skipped one. This is fine.
+        );
+    }
+
+    #[test]
+    fn test_typst() {
+        assert_eq!(typst_inline("a^2 + b^2 = c^2"), "$a^2 + b^2 = c^2$");
+        assert_eq!(typst_block("sum_{i=1}^n i"), "$$sum_{i=1}^n i$$");
+    }
+
+    #[test]
+    fn test_mathjax() {
+        assert_eq!(mathjax_inline("a^2 + b^2 = c^2"), "\\(a^2 + b^2 = c^2\\)");
+        assert_eq!(mathjax_block("sum_{i=1}^n i"), "\\[sum_{i=1}^n i\\]");
+    }
+
+    #[test]
+    fn test_format_obsidian() {
+        let obs = "Here is inline $a^2$ and block $$b^2$$ together.";
+        assert_eq!(
+            format_obsidian(obs),
+            "Here is inline \\(a^2\\) and block \\[b^2\\] together."
+        );
+
+        let tricky = "Cost is $5, but math is $x+y$.";
+        // Note: A naive parser will treat the first $ as an open delimiter, the second as close,
+        // and the third as another open delimiter.
+        assert_eq!(
+            format_obsidian(tricky),
+            "Cost is \\(5, but math is \\)x+y\\(."
         );
     }
 }
