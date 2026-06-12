@@ -116,10 +116,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### 4. Interacting with Note IDs
 
-Once you add notes, you get a unique Note ID (an `i64`). You can fetch information about a note or delete it using this ID.
+Once you add notes, you get a unique Note ID (an `i64`). You can fetch information about a note, update its fields, or delete it using this ID.
 
 ```rust
 use anker::AnkiClient;
+use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -132,6 +133,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(info) = infos.first() {
         println!("Note {} has tags: {:?}", info.note_id, info.tags);
     }
+
+    // Update note fields
+    let mut updated_fields = HashMap::new();
+    updated_fields.insert("Front".to_string(), "Updated Front text".to_string());
+    client.notes().update_note_fields(note_id, &updated_fields).await?;
+    println!("Note fields updated!");
 
     // Delete a note
     client.notes().delete_notes(&[note_id]).await?;

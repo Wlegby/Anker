@@ -82,6 +82,37 @@ impl<'a> Notes<'a> {
             .ok();
         Ok(())
     }
+
+    /// Updates the fields of an existing note by its ID.
+    pub async fn update_note_fields(
+        &self,
+        note_id: i64,
+        fields: &HashMap<String, String>,
+    ) -> Result<()> {
+        #[derive(Serialize)]
+        struct InnerNote<'a> {
+            id: i64,
+            fields: &'a HashMap<String, String>,
+        }
+        #[derive(Serialize)]
+        struct Params<'a> {
+            note: InnerNote<'a>,
+        }
+        let _: Option<()> = self
+            .client
+            .invoke(
+                "updateNoteFields",
+                Some(Params {
+                    note: InnerNote {
+                        id: note_id,
+                        fields,
+                    },
+                }),
+            )
+            .await
+            .ok();
+        Ok(())
+    }
 }
 
 impl crate::AnkiClient {
