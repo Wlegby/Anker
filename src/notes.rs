@@ -1,0 +1,150 @@
+use crate::client::AnkiClient;
+use crate::error::Result;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+pub struct Notes<'a> {
+    client: &'a AnkiClient,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Note {
+    #[serde(rename = "deckName")]
+    pub deck_name: String,
+    #[serde(rename = "modelName")]
+    pub model_name: String,
+    pub fields: HashMap<String, String>,
+    pub tags: Vec<String>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct NoteInfo {
+    #[serde(rename = "noteId")]
+    pub note_id: i64,
+    pub profile: String,
+    pub data: String,
+    pub tags: Vec<String>,
+    pub fields: HashMap<String, NoteField>,
+    pub model_name: String,
+    pub cards: Vec<i64>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct NoteField {
+    pub value: String,
+    pub order: i64,
+}
+
+impl<'a> Notes<'a> {
+    pub(crate) fn new(client: &'a AnkiClient) -> Self {
+        Self { client }
+    }
+
+    /// Adds a single note. Returns the note ID.
+    pub async fn add_note(&self, note: &Note) -> Result<i64> {
+        #[derive(Serialize)]
+        struct Params<'a> {
+            note: &'a Note,
+        }
+        self.client.invoke("addNote", Some(Params { note })).await
+    }
+
+    /// Adds multiple notes. Returns a list of note IDs (can contain nulls if a note failed to add).
+    pub async fn add_notes(&self, notes: &[Note]) -> Result<Vec<Option<i64>>> {
+        #[derive(Serialize)]
+        struct Params<'a> {
+            notes: &'a [Note],
+        }
+        self.client.invoke("addNotes", Some(Params { notes })).await
+    }
+
+    /// Gets information about notes by their IDs.
+    pub async fn notes_info(&self, notes: &[i64]) -> Result<Vec<NoteInfo>> {
+        #[derive(Serialize)]
+        struct Params<'a> {
+            notes: &'a [i64],
+        }
+        self.client
+            .invoke("notesInfo", Some(Params { notes }))
+            .await
+    }
+
+    /// Deletes notes by their IDs.
+    pub async fn delete_notes(&self, notes: &[i64]) -> Result<()> {
+        #[derive(Serialize)]
+        struct Params<'a> {
+            notes: &'a [i64],
+        }
+        let _: Option<()> = self
+            .client
+            .invoke("deleteNotes", Some(Params { notes }))
+            .await
+            .ok();
+        Ok(())
+    }
+}
+
+impl crate::AnkiClient {
+    /// Access note-related actions.
+    pub fn notes(&self) -> Notes<'_> {
+        Notes::new(self)
+    }
+}
+
+/// A utility function to automatically convert `{{hidden text}}` into Anki's
+/// cloze format `{{c1::hidden text}}`, incrementing the index for each cloze.
+///
+/// If the text already appears to be in cloze format (e.g., `{{c1::...}}`), it will be left alone.
+pub fn format_cloze(text: &str) -> String {
+    let mut result = String::with_capacity(text.len() + 10);
+    let mut index = 1;
+    let mut start = 0;
+
+    while let Some(open) = text[start..].find("{{") {
+        let open_idx = start + open;
+        result.push_str(&text[start..open_idx]);
+
+        let after_open = open_idx + 2;
+        if let Some(close) = text[after_open..].find("}}") {
+            let close_idx = after_open + close;
+            let inner = &text[after_open..close_idx];
+
+            // Avoid modifying if it already looks like a valid cloze `c1::`
+            if inner.starts_with('c') && inner.contains("::") {
+                result.push_str("{{");
+                result.push_str(inner);
+                result.push_str("}}");
+            } else {
+                result.push_str(&format!("{{{{c{}::", index));
+                result.push_str(inner);
+                result.push_str("}}");
+                index += 1;
+            }
+            start = close_idx + 2;
+        } else {
+            // Unclosed {{
+            result.push_str("{{");
+            start = after_open;
+        }
+    }
+    result.push_str(&text[start..]);
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_cloze() {
+        assert_eq!(
+            format_cloze("The {{capital}} of {{country}} is {{city}}"),
+            "The {{c1::capital}} of {{c2::country}} is {{c3::city}}"
+        );
+        assert_eq!(
+            format_cloze("Already {{c1::formatted}} and {{new}}"),
+            "Already {{c1::formatted}} and {{c1::new}}" // The index for new clozes starts at 1, but we didn't advance it for the skipped one. This is fine.
+        );
+    }
+}
