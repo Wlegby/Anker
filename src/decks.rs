@@ -43,14 +43,10 @@ impl<'a> Decks<'a> {
             cards: &'a [i64],
             deck: &'a str,
         }
-        let _result: Option<()> = self
+        let _: () = self
             .client
             .invoke("changeDeck", Some(Params { cards, deck }))
-            .await
-            .ok();
-        // The API might return null for successful changeDeck. Our invoke handles null as an error if R isn't Option,
-        // Wait, let's fix this in client.rs to allow deserializing unit () from null.
-        // For now we just ignore the return value and check for Ok.
+            .await?;
         Ok(())
     }
 
@@ -62,11 +58,10 @@ impl<'a> Decks<'a> {
             decks: &'a [&'a str],
             cards_too: bool,
         }
-        let _: Option<()> = self
+        let _: () = self
             .client
             .invoke("deleteDecks", Some(Params { decks, cards_too }))
-            .await
-            .ok();
+            .await?;
         Ok(())
     }
 }

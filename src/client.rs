@@ -21,8 +21,8 @@ struct AnkiRequest<'a, T> {
 }
 
 #[derive(Deserialize)]
-struct AnkiResponse<R> {
-    result: Option<R>,
+struct AnkiResponse {
+    result: Option<serde_json::Value>,
     error: Option<String>,
 }
 
@@ -56,7 +56,7 @@ impl AnkiClient {
             params,
         };
 
-        let response: AnkiResponse<R> = self
+        let response: AnkiResponse = self
             .client
             .post(self.url.clone())
             .json(&req)
@@ -69,13 +69,9 @@ impl AnkiClient {
             return Err(AnkiError::Api(err_msg));
         }
 
-        // According to AnkiConnect API, result could be null, but we usually expect it if no error
-        // If the return type R is `()`, `serde_json` might deserialize `null` as `()`.
-        match response.result {
-            Some(res) => Ok(res),
-            None => Err(AnkiError::Api(
-                "Result is null but no error was provided".into(),
-            )),
-        }
+        let result_value = response.result.unwrap_or(serde_json::Value::Null);
+        let res: R = serde_json::from_value(result_value)
+            .map_err(|e| AnkiError::Api(format!("Failed to parse result: {}", e)))?;
+        Ok(res)
     }
 }

@@ -21,11 +21,12 @@ pub struct Note {
 pub struct NoteInfo {
     #[serde(rename = "noteId")]
     pub note_id: i64,
-    pub profile: String,
-    pub data: String,
+    #[serde(default)]
     pub tags: Vec<String>,
     pub fields: HashMap<String, NoteField>,
+    #[serde(rename = "modelName")]
     pub model_name: String,
+    #[serde(default)]
     pub cards: Vec<i64>,
 }
 
@@ -75,11 +76,10 @@ impl<'a> Notes<'a> {
         struct Params<'a> {
             notes: &'a [i64],
         }
-        let _: Option<()> = self
+        let _: () = self
             .client
             .invoke("deleteNotes", Some(Params { notes }))
-            .await
-            .ok();
+            .await?;
         Ok(())
     }
 
@@ -98,7 +98,7 @@ impl<'a> Notes<'a> {
         struct Params<'a> {
             note: InnerNote<'a>,
         }
-        let _: Option<()> = self
+        let _: () = self
             .client
             .invoke(
                 "updateNoteFields",
@@ -109,10 +109,44 @@ impl<'a> Notes<'a> {
                     },
                 }),
             )
-            .await
-            .ok();
+            .await?;
         Ok(())
     }
+
+    /// Extensively updates a note's fields and tags in one go using the `updateNote` action.
+    pub async fn update_note(&self, update: &NoteUpdate<'_>) -> Result<()> {
+        #[derive(Serialize)]
+        struct Params<'a> {
+            note: &'a NoteUpdate<'a>,
+        }
+        let _: () = self
+            .client
+            .invoke("updateNote", Some(Params { note: update }))
+            .await?;
+        Ok(())
+    }
+
+    /// Moves a note to a different deck.
+    /// Anki technically assigns decks to *Cards*, not *Notes*. This helper fetches all
+    /// cards belonging to the Note and changes their deck.
+    pub async fn update_note_deck(&self, note_id: i64, deck: &str) -> Result<()> {
+        let infos = self.notes_info(&[note_id]).await?;
+        if let Some(info) = infos.first() {
+            if !info.cards.is_empty() {
+                self.client.decks().change_deck(&info.cards, deck).await?;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct NoteUpdate<'a> {
+    pub id: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fields: Option<&'a HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<&'a [String]>,
 }
 
 impl crate::AnkiClient {

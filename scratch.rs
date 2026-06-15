@@ -1,11 +1,7 @@
-use pulldown_cmark::{Parser, Options, html};
+use serde::Deserialize;
 
 fn main() {
-    let md = "Here is **bold** and *italic* and inline math $a^2$ and block math $$b^2$$.";
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_MATH);
-    let parser = Parser::new_ext(md, options);
-    let mut html_output = String::new();
-    html::push_html(&mut html_output, parser);
-    println!("{}", html_output);
+    let val = serde_json::Value::Null;
+    let r: Result<(), _> = serde_json::from_value(val);
+    println!("r: {:?}", r);
 }

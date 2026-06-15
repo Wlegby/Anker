@@ -116,33 +116,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### 4. Interacting with Note IDs
 
-Once you add notes, you get a unique Note ID (an `i64`). You can fetch information about a note, update its fields, or delete it using this ID.
+Once you add notes, you get a unique Note ID (an `i64`). You can fetch information about a note, update its fields, tags, decks, or delete it using this ID.
 
 ```rust
 use anker::AnkiClient;
 use std::collections::HashMap;
+use anker::notes::NoteUpdate;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = AnkiClient::default();
+async fn main() -> anker::Result<()> {
+    let client = anker::AnkiClient::new();
+    let note_id = 1600000000000; // The ID of your note
 
-    let note_id = 1234567890; // Replace with an actual Note ID
-
-    // Fetch note info
+    // 1. Fetch info
     let infos = client.notes().notes_info(&[note_id]).await?;
-    if let Some(info) = infos.first() {
-        println!("Note {} has tags: {:?}", info.note_id, info.tags);
-    }
 
-    // Update note fields
-    let mut updated_fields = HashMap::new();
-    updated_fields.insert("Front".to_string(), "Updated Front text".to_string());
-    client.notes().update_note_fields(note_id, &updated_fields).await?;
-    println!("Note fields updated!");
+    // 2. Update ONLY the fields
+    let mut fields = HashMap::new();
+    fields.insert("Front".to_string(), "Updated front!".to_string());
+    client.notes().update_note_fields(note_id, &fields).await?;
 
-    // Delete a note
-    client.notes().delete_notes(&[note_id]).await?;
-    println!("Note deleted!");
+    // 3. Extensively update fields and tags in one go
+    let new_tags = vec!["updated-tag".to_string()];
+    let update = NoteUpdate {
+        id: note_id,
+        fields: Some(&fields), // Optional
+        tags: Some(&new_tags), // Optional
+    };
+    client.notes().update_note(&update).await?;
+    
+    // 4. Move the note to a different deck
+    // Note: This magically finds all cards belonging to the note and moves them for you!
+    client.notes().update_note_deck(note_id, "Languages::Rust").await?;
 
     Ok(())
 }
