@@ -1,4 +1,54 @@
+use crate::AnkiClient;
+use crate::error::Result;
+use crate::media::MediaSource;
 use pulldown_cmark::{Event, Options, Parser, html};
+use regex::Regex;
+use std::path::Path;
+
+/// Scans markdown text for Obsidian wikilinks `[[...]]` containing absolute file paths.
+/// If the path points to an existing local file, it automatically uploads the file to Anki
+/// and replaces the wikilink with an HTML `<img src="...">` tag.
+pub async fn upload_media(client: &AnkiClient, text: &str) -> Result<String> {
+    let re = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
+
+    // We cannot do async replace with Regex, so we find matches,
+    // process them sequentially, and build the final string.
+    let mut last_match = 0;
+    let mut result = String::with_capacity(text.len());
+
+    for cap in re.captures_iter(text) {
+        let m = cap.get(0).unwrap();
+        result.push_str(&text[last_match..m.start()]);
+        last_match = m.end();
+
+        let inner = cap.get(1).unwrap().as_str();
+        // Obsidian links can have aliases `[[path|alias]]`
+        let path_str = inner.split('|').next().unwrap_or(inner).trim();
+
+        let path = Path::new(path_str);
+        if path.is_absolute() && path.is_file() {
+            if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                // Upload to Anki
+                let final_filename = client
+                    .media()
+                    .store_media_file(MediaSource::Path {
+                        filename,
+                        path: path_str,
+                    })
+                    .await?;
+
+                result.push_str(&format!("<img src=\"{}\">", final_filename));
+                continue;
+            }
+        }
+
+        // If it's not a file, leave it untouched
+        result.push_str(m.as_str());
+    }
+
+    result.push_str(&text[last_match..]);
+    Ok(result)
+}
 
 /// Converts Obsidian/Markdown text into HTML suitable for Anki.
 ///

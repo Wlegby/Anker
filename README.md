@@ -183,6 +183,29 @@ let obsidian_typst = "Compute the sum: $sum_(i=1)^n i$";
 let html_for_anki = markdown_to_anki_with_typst(obsidian_typst);
 ```
 
+#### Automatically Uploading Local Obsidian Images
+
+If your Markdown contains Obsidian image wikilinks with absolute paths (e.g., `[[/home/user/Pictures/image.png]]`), `anker` can automatically upload these files to Anki and replace the links with valid HTML `<img src="anki_filename.png">` tags!
+
+```rust
+use anker::AnkiClient;
+use anker::markdown::upload_media;
+
+#[tokio::main]
+async fn main() -> anker::Result<()> {
+    let client = AnkiClient::new();
+    let text = "Here is my image: [[/absolute/path/to/my_image.png|Size 200x200]]";
+    
+    // Scans text, detects the absolute path, securely uploads it to Anki, 
+    // and returns the rewritten string: "Here is my image: <img src=\"my_image.png\">"
+    let updated_text = upload_media(&client, text).await?;
+    
+    // Now you can safely compile it to HTML!
+    let html = anker::markdown::markdown_to_anki(&updated_text);
+    Ok(())
+}
+```
+
 ## Modules overview
 
 - `client.decks()`: Create, list, delete decks.

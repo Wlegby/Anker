@@ -28,18 +28,25 @@ impl<'a> Media<'a> {
     }
 
     /// Retrieves the base64 encoded data of a media file.
-    pub async fn retrieve_media_file(&self, filename: &str) -> Result<String> {
+    /// Returns `Ok(Some(String))` if the file exists, or `Ok(None)` if the file does not exist.
+    pub async fn retrieve_media_file(&self, filename: &str) -> Result<Option<String>> {
         #[derive(Serialize)]
         struct Params<'a> {
             filename: &'a str,
         }
-        // Returns the base64 encoded data or false if not found.
-        // Wait, AnkiConnect returns false if the file doesn't exist.
-        // Let's type it as Option<String>, assuming AnkiConnect returns false which serde_json might not gracefully map to Option unless custom deserialized.
-        // Actually, it usually returns a string. Let's just return string or it'll be an error.
-        self.client
+
+        let val: serde_json::Value = self
+            .client
             .invoke("retrieveMediaFile", Some(Params { filename }))
-            .await
+            .await?;
+
+        match val {
+            serde_json::Value::String(s) => Ok(Some(s)),
+            serde_json::Value::Bool(false) => Ok(None),
+            _ => Err(crate::error::AnkiError::Api(
+                "Unexpected return type from retrieveMediaFile".into(),
+            )),
+        }
     }
 }
 
