@@ -27,30 +27,40 @@ tokio = { version = "1.0", features = ["full"] }
 
 ## Examples
 
-### 1. Adding a Basic Note
+### 1. Adding a Basic (or Reversed) Note
+
+You can manually construct a `Note`, or use the convenience constructor for standard Anki models like `Basic`. By passing `true` as the last argument, it automatically uses the `"Basic (and reversed card)"` model to generate two-way flashcards!
 
 ```rust
 use anker::AnkiClient;
 use anker::notes::Note;
-use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = AnkiClient::default();
+
+    // Standard "Basic" note (Front -> Back)
+    let basic_note = Note::basic(
+        "Default", 
+        "What is Rust?", 
+        "A systems programming language.",
+        false // Not reversed
+    ).with_tag("programming").with_tag("rust");
+
+    let note_id = client.notes().add_note(&basic_note).await?;
+    println!("Added basic note with ID: {}", note_id);
+
+    // Standard "Basic (and reversed card)" note (Front <-> Back)
+    let reversed_note = Note::basic(
+        "Default",
+        "el perro",
+        "the dog",
+        true // Reversed!
+    ).with_tag("spanish");
+
+    let reversed_id = client.notes().add_note(&reversed_note).await?;
+    println!("Added reversed note with ID: {}", reversed_id);
     
-    let mut fields = HashMap::new();
-    fields.insert("Front".to_string(), "What is Rust?".to_string());
-    fields.insert("Back".to_string(), "A systems programming language.".to_string());
-
-    let note = Note {
-        deck_name: "Default".to_string(),
-        model_name: "Basic".to_string(),
-        fields,
-        tags: vec!["programming".to_string(), "rust".to_string()],
-    };
-
-    let note_id = client.notes().add_note(&note).await?;
-    println!("Added note with ID: {}", note_id);
     Ok(())
 }
 ```

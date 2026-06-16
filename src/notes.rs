@@ -17,6 +17,52 @@ pub struct Note {
     pub tags: Vec<String>,
 }
 
+impl Note {
+    /// Creates a new custom Note without fields or tags.
+    pub fn new(deck_name: impl Into<String>, model_name: impl Into<String>) -> Self {
+        Self {
+            deck_name: deck_name.into(),
+            model_name: model_name.into(),
+            fields: HashMap::new(),
+            tags: Vec::new(),
+        }
+    }
+
+    /// Creates a standard "Basic" flashcard.
+    /// If `reversed` is true, it uses the "Basic (and reversed card)" model, 
+    /// which automatically generates two cards: Front -> Back and Back -> Front.
+    /// Expects fields named "Front" and "Back" to exist in your Anki collection.
+    pub fn basic(
+        deck_name: impl Into<String>, 
+        front: impl Into<String>, 
+        back: impl Into<String>, 
+        reversed: bool
+    ) -> Self {
+        let mut fields = HashMap::new();
+        fields.insert("Front".to_string(), front.into());
+        fields.insert("Back".to_string(), back.into());
+        
+        let model_name = if reversed {
+            "Basic (and reversed card)"
+        } else {
+            "Basic"
+        };
+
+        Self {
+            deck_name: deck_name.into(),
+            model_name: model_name.to_string(),
+            fields,
+            tags: Vec::new(),
+        }
+    }
+
+    /// Adds a tag to the note (builder pattern).
+    pub fn with_tag(mut self, tag: impl Into<String>) -> Self {
+        self.tags.push(tag.into());
+        self
+    }
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct NoteInfo {
     #[serde(rename = "noteId")]
