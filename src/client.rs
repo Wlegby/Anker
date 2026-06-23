@@ -34,8 +34,14 @@ impl Default for AnkiClient {
 
 impl AnkiClient {
     pub fn new(url: &str) -> Self {
+        // Build a client with a 5-second timeout
+        let client = Client::builder()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .unwrap_or_else(|_| Client::new());
+
         Self {
-            client: Client::new(),
+            client,
             url: Url::parse(url).unwrap_or_else(|_| Url::parse(DEFAULT_URL).unwrap()),
             version: 6,
         }
